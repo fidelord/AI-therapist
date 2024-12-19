@@ -38,6 +38,7 @@ def create_model():
         return ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0.7,
+            openai_api_key=openai_api_key
             
         )
     except Exception as e:
