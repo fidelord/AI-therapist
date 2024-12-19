@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            width: fit-content;
+        }
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            margin: 0 3px;
+            background-color: #666;
+            display: inline-block;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        .message {
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message-user {
+            background-color: rgb(243, 232, 255);
+            color: rgb(107, 33, 168);
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message-ai {
+            background-color: rgb(239, 246, 255);
+            color: rgb(55, 65, 81);
+            align-self: flex-start;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-blue-100 min-h-screen flex items-center justify-center p-4">
+    <div class="container mx-auto max-w-2xl w-full">
+        <div class="bg-white shadow-2xl rounded-xl overflow-hidden border border-gray-200">
+            <!-- Chat Header -->
+            <div class="bg-gradient-to-r from-purple-500 to-blue-500 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                        <i class="fas fa-robot text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold">AI Assistant</h2>
+                        <div class="flex items-center text-xs">
+                            <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                            <span class="text-blue-100">Online</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="export-chat" class="hover:bg-white/20 p-2 rounded-full transition" title="Export Chat">
+                        <i class="fas fa-download text-white"></i>
+                    </button>
+                    <button id="clear-chat" class="hover:bg-white/20 p-2 rounded-full transition" title="Clear Chat">
+                        <i class="fas fa-trash text-white"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Messages Container -->
+            <div id="chat-container" class="p-4 h-[500px] overflow-y-auto custom-scrollbar flex flex-col space-y-3">
+                <div class="message message-fade-in message-ai p-3 rounded-lg max-w-[85%]">
+                    Hello! I'm your AI assistant. How can I help you today?
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="hidden px-4 pb-2">
+                <div class="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+
+            <!-- Message Input Area -->
+            <div class="p-4 border-t border-gray-200 bg-white">
+                <form id="message-form" class="flex items-center space-x-2">
+                    <input 
+                        type="text" 
+                        id="message-input" 
+                        placeholder="Type your message..." 
+                        class="flex-grow p-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        maxlength="500"
+                    >
+                    <button 
+                        type="submit"
+                        id="send-btn" 
+                        class="bg-purple-500 text-white p-3 rounded-full hover:bg-purple-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatContainer = document.getElementById('chat-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const clearChatBtn = document.getElementById('clear-chat');
+        const exportChatBtn = document.getElementById('export-chat');
+
+        // Constants
+        const MAX_MESSAGES = 50;
+        const MIN_MESSAGE_LENGTH = 1;
+        const MAX_MESSAGE_LENGTH = 500;
+        const TYPING_DELAY = 1000; // milliseconds
+
+        // State management
+        let chatHistory = [];
+        let isProcessing = false;
+
+        // Enable/disable send button based on input
+        messageInput.addEventListener('input', () => {
+            const messageLength = messageInput.value.trim().length;
+            sendBtn.disabled = messageLength < MIN_MESSAGE_LENGTH || messageLength > MAX_MESSAGE_LENGTH;
+        });
+
+        function showTypingIndicator() {
+            typingIndicator.classList.remove('hidden');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            typingIndicator.classList.add('hidden');
+        }
+
+        function formatTimestamp() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function addMessage(content, type) {
+            if (!content.trim()) return;
+
+            const messageObj = {
+                content,
+                type,
+                timestamp: formatTimestamp()
+            };
+
+            chatHistory.push(messageObj);
+            if (chatHistory.length > MAX_MESSAGES) {
+                chatHistory.shift();
+            }
+
+            const messageDiv = document.createElement('div');
+            // Add classes individually to avoid the HTML space character error
+            messageDiv.classList.add('message');
+            messageDiv.classList.add('message-fade-in');
+            messageDiv.classList.add('p-3');
+            messageDiv.classList.add('rounded-lg');
+            messageDiv.classList.add('max-w-[85%]');
+            messageDiv.classList.add(type === 'user' ? 'message-user' : 'message-ai');
+
+            const messageContent = document.createElement('div');
+            messageContent.textContent = content;
+            
+            const timestampDiv = document.createElement('div');
+            timestampDiv.classList.add('text-xs');
+            timestampDiv.classList.add('text-gray-500');
+            timestampDiv.classList.add('mt-1');
+            timestampDiv.textContent = messageObj.timestamp;
+
+            messageDiv.appendChild(messageContent);
+            messageDiv.appendChild(timestampDiv);
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage(event) {
+            event?.preventDefault();
+            
+            if (isProcessing) return;
+
+            const message = messageInput.value.trim();
+            if (!message || message.length > MAX_MESSAGE_LENGTH) return;
+
+            isProcessing = true;
+            messageInput.value = '';
+            sendBtn.disabled = true;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // Simulate typing delay
+                await new Promise(resolve => setTimeout(resolve, TYPING_DELAY));
+                
+                hideTypingIndicator();
+                addMessage(data.message || 'Received your message!', 'ai');
+            } catch (error) {
+                console.error('Error:', error);
+                hideTypingIndicator();
+                addMessage('Sorry, there was an error processing your message. Please try again.', 'ai');
+            } finally {
+                isProcessing = false;
+                messageInput.focus();
+            }
+        }
+
+        function clearChat() {
+            if (confirm('Are you sure you want to clear the chat history?')) {
+                chatContainer.innerHTML = '';
+                chatHistory = [];
+                addMessage('Hello! I am your AI assistant. How can I help you today?', 'ai');
+            }
+        }
+
+        function exportChat() {
+            const chatText = chatHistory.map(msg => 
+                `[${msg.timestamp}] ${msg.type === 'user' ? 'You' : 'AI'}: ${msg.content}`
+            ).join('\n');
+
+            const blob = new Blob([chatText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat-history-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Event Listeners
+        messageForm.addEventListener('submit', sendMessage);
+        clearChatBtn.addEventListener('click', clearChat);
+        exportChatBtn.addEventListener('click', exportChat);
+
+        // Handle user leaving the page
+        window.addEventListener('beforeunload', (event) => {
+            if (chatHistory.length > 1) {
+                event.preventDefault();
+                return event.returnValue = 'You have unsaved chat history. Are you sure you want to leave?';
+            }
+        });
+    });
+    </script>
+</body>
+</html>
