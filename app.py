@@ -11,7 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Set a secret key for sessions
-app.secret_key = os.urandom(24)
+app.secret_key = os.urandom(25)
 
 # Initialize the chat graph
 chat_graph = create_chat_graph()
