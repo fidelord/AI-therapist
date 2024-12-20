@@ -240,8 +240,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({ message }),
+                    
                 });
+                console.log('henry',response);
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
